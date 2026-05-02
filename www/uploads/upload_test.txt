@@ -1,0 +1,14 @@
+POST /uploads HTTP/1.1
+Host: 127.0.0.1:8080
+User-Agent: curl/7.81.0
+Accept: */*
+Content-Length: 213
+Content-Type: multipart/form-data; boundary=------------------------9991d8b55e783287
+
+--------------------------9991d8b55e783287
+Content-Disposition: form-data; name="file"; filename="upload_test.txt"
+Content-Type: text/plain
+
+upload test content
+
+--------------------------9991d8b55e783287--

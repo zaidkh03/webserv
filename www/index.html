@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webserv - HTTP Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            text-align: center;
+        }
+        h1 {
+            color: #667eea;
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        .feature {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.2s;
+        }
+        .feature:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .links {
+            margin-top: 40px;
+        }
+        a {
+            display: inline-block;
+            margin: 10px;
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        a:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Webserv</h1>
+        <p>Welcome to Webserv - A fully functional HTTP/1.1 server written in C++98</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="icon">📡</div>
+                <h3>Non-blocking I/O</h3>
+                <p>Powered by poll()</p>
+            </div>
+            <div class="feature">
+                <div class="icon">🔀</div>
+                <h3>Multiple Ports</h3>
+                <p>Multi-server support</p>
+            </div>
+            <div class="feature">
+                <div class="icon">📝</div>
+                <h3>HTTP Methods</h3>
+                <p>GET, POST, DELETE</p>
+            </div>
+            <div class="feature">
+                <div class="icon">⚙️</div>
+                <h3>CGI Support</h3>
+                <p>PHP, Python & more</p>
+            </div>
+            <div class="feature">
+                <div class="icon">📤</div>
+                <h3>File Upload</h3>
+                <p>Handle uploads</p>
+            </div>
+            <div class="feature">
+                <div class="icon">📂</div>
+                <h3>Directory Listing</h3>
+                <p>Auto-index enabled</p>
+            </div>
+        </div>
+
+        <div class="links">
+            <a href="/upload">File Upload</a>
+            <a href="/cgi-bin/test.php">Test CGI</a>
+            <a href="/redirect">Test Redirect</a>
+        </div>
+
+        <p style="margin-top: 40px; font-size: 0.9em; color: #999;">
+            Webserv/1.0 - 42 School Project
+        </p>
+    </div>
+</body>
+</html>
