@@ -25,7 +25,7 @@
 
 #define BUFFER_SIZE 8192
 #define MAX_CLIENTS 1024
-#define REQUEST_TIMEOUT 60
+#define REQUEST_TIMEOUT 30
 
 // Color codes for logging
 #define RESET   "\033[0m"

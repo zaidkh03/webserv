@@ -11,6 +11,7 @@ private:
     std::map<std::string, std::string> _headers;
     std::string _body;
     std::string _rawRequest;
+    std::string _chunkBuffer;
     bool _complete;
     bool _headersComplete;
     size_t _contentLength;

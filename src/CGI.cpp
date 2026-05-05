@@ -1,8 +1,10 @@
 #include "../include/CGI.hpp"
 
 CGI::CGI(const std::string& cgiPath, const std::string& scriptPath,
+         const std::string& scriptName, const std::string& pathInfo,
          const Request& request, const Server& server)
-    : _cgiPath(cgiPath), _scriptPath(scriptPath), _request(request), _server(server) {
+    : _cgiPath(cgiPath), _scriptPath(scriptPath), _scriptName(scriptName),
+      _pathInfo(pathInfo), _request(request), _server(server) {
     setupEnvironment(request.getQueryString());
 }
 
@@ -11,8 +13,9 @@ CGI::~CGI() {}
 void CGI::setupEnvironment(const std::string& queryString) {
     _env["REQUEST_METHOD"] = _request.getMethod();
     _env["SCRIPT_FILENAME"] = _scriptPath;
-    _env["SCRIPT_NAME"] = _request.getPath();
-    _env["PATH_INFO"] = _request.getPath();
+    _env["SCRIPT_NAME"] = _scriptName;
+    _env["PATH_INFO"] = _pathInfo;
+    _env["REQUEST_URI"] = _request.getURI();
     _env["QUERY_STRING"] = queryString;
     _env["SERVER_PROTOCOL"] = _request.getVersion();
     _env["GATEWAY_INTERFACE"] = "CGI/1.1";
@@ -87,16 +90,18 @@ std::string CGI::execute() {
         close(pipeOut[1]);
         
         // Change to script directory
+        std::string scriptArg = _scriptPath;
         size_t lastSlash = _scriptPath.find_last_of('/');
         if (lastSlash != std::string::npos) {
             std::string dir = _scriptPath.substr(0, lastSlash);
-            chdir(dir.c_str());
+            if (chdir(dir.c_str()) == 0)
+                scriptArg = _scriptPath.substr(lastSlash + 1);
         }
         
         char** env = getEnvArray();
         char* args[] = {
             const_cast<char*>(_cgiPath.c_str()),
-            const_cast<char*>(_scriptPath.c_str()),
+            const_cast<char*>(scriptArg.c_str()),
             NULL
         };
         

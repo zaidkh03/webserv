@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Eval Site A Dashboard</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0e1a;
+            --card: #0f1629;
+            --border: #1e2d4a;
+            --accent: #3b82f6;
+            --acc2: #8b5cf6;
+            --acc3: #10b981;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --code: #1e293b;
+            --danger: #f87171;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.55;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(59, 130, 246, .04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, .04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            background: rgba(10, 14, 26, .85);
+            border-bottom: 1px solid var(--border);
+            padding: .75rem 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: .03em;
+            white-space: nowrap;
+        }
+
+        .logo span {
+            color: var(--acc2);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: .88rem;
+            transition: color .2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        .hero {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 3.5rem 1rem 2rem;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: .28rem .9rem;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: .8rem;
+            color: var(--muted);
+            background: var(--card);
+        }
+
+        h1 {
+            font-size: clamp(2rem, 6vw, 3.4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 0%, #93c5fd 55%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: .7rem;
+        }
+
+        .hero-sub {
+            font-size: 1.02rem;
+            color: var(--muted);
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .status-bar {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            gap: .65rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 0 1rem 1.6rem;
+        }
+
+        .status-chip {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .9rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: .84rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .dot-blue {
+            background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
+        }
+
+        .dot-purple {
+            background: var(--acc2);
+            box-shadow: 0 0 6px var(--acc2);
+        }
+
+        .dot-green {
+            background: var(--acc3);
+            box-shadow: 0 0 6px var(--acc3);
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 0 1rem 2rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: .75rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+            gap: .75rem;
+        }
+
+        .item {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .7rem;
+            background: rgba(255, 255, 255, .01);
+            display: grid;
+            gap: .45rem;
+        }
+
+        .item strong {
+            font-size: .92rem;
+        }
+
+        .code {
+            display: inline-block;
+            font-family: "Cascadia Code", "Courier New", monospace;
+            background: var(--code);
+            color: #93c5fd;
+            border-radius: 5px;
+            padding: .15rem .45rem;
+            font-size: .82rem;
+        }
+
+        .btn,
+        button {
+            border: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--accent), var(--acc2));
+            color: #fff;
+            border-radius: 8px;
+            padding: .48rem .65rem;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: .86rem;
+            text-align: center;
+            transition: transform .16s, border-color .16s;
+        }
+
+        .btn:hover,
+        button:hover {
+            transform: translateY(-1px);
+            border-color: #93c5fd;
+        }
+
+        .btn.secondary,
+        button.secondary {
+            background: transparent;
+            color: var(--text);
+        }
+
+        label {
+            color: var(--muted);
+            font-size: .84rem;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .5rem;
+            font: inherit;
+            color: var(--text);
+            background: var(--code);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .result {
+            margin-top: .7rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #0c1324;
+            padding: .7rem;
+            min-height: 70px;
+            white-space: pre-wrap;
+            font-family: "Courier New", monospace;
+            font-size: .84rem;
+        }
+
+        .ok { color: var(--acc3); font-weight: 700; }
+        .bad { color: var(--danger); font-weight: 700; }
+
+        .terminal {
+            overflow-x: auto;
+            background: #090f1f;
+            color: #dbe7ff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: .9rem;
+            font-family: "Courier New", monospace;
+            font-size: .82rem;
+            line-height: 1.45;
+        }
+
+        .quick-row {
+            margin-top: .7rem;
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+        }
+
+        footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: var(--muted);
+            padding: .3rem 1rem 1.2rem;
+            font-size: .9rem;
+        }
+
+        @media (max-width: 700px) {
+            nav {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .nav-links {
+                justify-content: flex-start;
+            }
+
+            .btn,
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<nav>
+    <div class="logo">eval<span>site-a</span></div>
+    <div class="nav-links">
+        <a href="#routes">Routes</a>
+        <a href="#interactive">Interactive</a>
+        <a href="#terminal">Terminal</a>
+        <a href="http://127.0.0.1:18081/">Site B</a>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="badge">EVAL SUITE · PRIMARY DASHBOARD</div>
+    <h1>Eval Site A Dashboard</h1>
+    <p class="hero-sub"><strong>EVAL SITE A ROOT</strong><br>Styled to match the same dark theme direction as <span class="code">www/welcome.html</span>, with all test controls preserved.</p>
+</header>
+
+<div class="status-bar">
+    <div class="status-chip"><span class="dot dot-blue"></span>Site A: <span class="code">127.0.0.1:18080</span></div>
+    <div class="status-chip"><span class="dot dot-purple"></span>Site B: <span class="code">127.0.0.1:18081</span></div>
+    <div class="status-chip"><span class="dot dot-green"></span>Config: <span class="code">config/eval_suite.conf</span></div>
+</div>
+
+<main class="wrapper">
+    <section class="panel" id="routes">
+        <h2>Route Access</h2>
+        <div class="grid">
+            <div class="item">
+                <strong>Directory + index</strong>
+                <span><span class="code">/with-index</span> and <span class="code">/with-index/</span></span>
+                <a class="btn" href="/with-index">Open /with-index</a>
+                <a class="btn secondary" href="/with-index/">Open /with-index/</a>
+            </div>
+
+            <div class="item">
+                <strong>Autoindex</strong>
+                <span><span class="code">/list</span> and <span class="code">/list/</span></span>
+                <a class="btn" href="/list">Open /list</a>
+                <a class="btn secondary" href="/list/">Open /list/</a>
+            </div>
+
+            <div class="item">
+                <strong>Redirect + 404</strong>
+                <span><span class="code">/redirect-me</span> and missing URL</span>
+                <a class="btn" href="/redirect-me">Trigger redirect</a>
+                <a class="btn secondary" href="/this-page-does-not-exist">Trigger 404</a>
+            </div>
+
+            <div class="item">
+                <strong>Static references</strong>
+                <span><span class="code">/outside_marker.txt</span>, <span class="code">/errors/404.html</span></span>
+                <a class="btn" href="/outside_marker.txt">Open outside marker</a>
+                <a class="btn secondary" href="/errors/404.html">Open 404 file</a>
+            </div>
+
+            <div class="item">
+                <strong>CGI routes</strong>
+                <span><span class="code">/cgi-bin/*</span></span>
+                <a class="btn" href="/cgi-bin/env_echo.py?alpha=1&beta=two">env_echo GET</a>
+                <a class="btn secondary" href="/cgi-bin/relative_read.py">relative_read</a>
+                <a class="btn secondary" href="/cgi-bin/sleep_short.py">sleep_short</a>
+                <a class="btn secondary" href="/cgi-bin/crash.py">crash.py</a>
+            </div>
+
+            <div class="item">
+                <strong>Secondary site</strong>
+                <span><span class="code">http://127.0.0.1:18081/</span></span>
+                <a class="btn" href="http://127.0.0.1:18081/">Open Site B</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel" id="interactive">
+        <h2>Interactive API Checks</h2>
+        <div class="grid">
+            <div class="item">
+                <strong>HEAD policy</strong>
+                <button onclick="headCheck('/with-index/')">HEAD /with-index/</button>
+                <button class="secondary" onclick="headCheck('/post-only')">HEAD /post-only</button>
+            </div>
+
+            <div class="item">
+                <strong>Autoindex assertions</strong>
+                <button onclick="autoindexCheck()">Validate /list/ content</button>
+            </div>
+
+            <div class="item">
+                <strong>POST-only route</strong>
+                <button onclick="postOnlyGet()">GET /post-only (expect 405)</button>
+                <button class="secondary" onclick="postOnlyPost()">POST /post-only/eval_post.txt</button>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top:.7rem;">
+            <div class="item">
+                <strong>Upload / Retrieve / Delete</strong>
+                <label>Filename</label>
+                <input id="upload-name" value="browser_demo.txt">
+                <label>Body</label>
+                <textarea id="upload-body">Hello from Site A dashboard</textarea>
+                <button onclick="uploadFile()">POST /upload/&lt;name&gt;</button>
+                <button class="secondary" onclick="getFile()">GET /upload/&lt;name&gt;</button>
+                <button class="secondary" onclick="deleteFile()">DELETE /delete/&lt;name&gt;</button>
+            </div>
+
+            <div class="item">
+                <strong>Body-size limit</strong>
+                <button onclick="tinyBodyFail()">POST > 16 bytes to /tiny-body (expect 413)</button>
+            </div>
+
+            <div class="item">
+                <strong>CGI env</strong>
+                <button onclick="cgiEnvGet()">GET env_echo</button>
+                <button class="secondary" onclick="cgiEnvPost()">POST env_echo</button>
+                <button class="secondary" onclick="cgiPathInfo()">GET env_echo.py/extra?x=1</button>
+            </div>
+        </div>
+
+        <div class="quick-row">
+            <button onclick="runMiniSuite()">Run Mini Browser Suite</button>
+        </div>
+
+        <div id="result" class="result">Ready.</div>
+    </section>
+
+    <section class="panel" id="terminal">
+        <h2>Terminal-only Protocol Cases</h2>
+        <div class="terminal">
+# Unknown method
+printf 'GETTTTT / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n' | nc 127.0.0.1 18080
+
+# Broken header
+printf 'GET / HTTP/1.1\r\nHost 127.0.0.1\r\n\r\n' | nc 127.0.0.1 18080
+
+# Chunked request arrival
+python3 - <<'PY'
+import socket, time
+s=socket.socket(); s.connect(('127.0.0.1',18080))
+s.sendall(b"POST /cgi-bin/env_echo.py HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nTransfer-Encoding: chunked\\r\\nContent-Type: text/plain\\r\\n\\r\\n")
+for part in [b"5\\r\\nhello\\r\\n", b"6\\r\\n world\\r\\n", b"0\\r\\n\\r\\n"]:
+    s.sendall(part); time.sleep(0.2)
+print(s.recv(8192).decode('utf-8','ignore'))
+s.close()
+PY
+        </div>
+    </section>
+</main>
+
+<footer>
+    Site A remains the main entry for evaluation flow checks, now with the welcome.html visual theme.
+</footer>
+
+<script>
+    function setResult(text, ok) {
+        var el = document.getElementById('result');
+        el.innerHTML = (ok ? '<span class="ok">[OK]</span> ' : '<span class="bad">[FAIL]</span> ') + text;
+    }
+
+    async function fetchText(url, options) {
+        var response = await fetch(url, options || {});
+        var body = await response.text();
+        return { response: response, body: body };
+    }
+
+    function shortText(t) {
+        return t.length > 420 ? t.slice(0, 420) + '\n... (truncated)' : t;
+    }
+
+    function filename() {
+        var v = document.getElementById('upload-name').value.trim();
+        return encodeURIComponent(v || 'browser_demo.txt');
+    }
+
+    async function headCheck(path) {
+        try {
+            var r = await fetch(path, { method: 'HEAD' });
+            setResult('HEAD ' + path + ' -> ' + r.status + '\nContent-Length=' + (r.headers.get('content-length') || 'none'), r.status < 500);
+        } catch (e) {
+            setResult('HEAD failed: ' + e, false);
+        }
+    }
+
+    async function autoindexCheck() {
+        try {
+            var out = await fetchText('/list/');
+            var html = out.body.toLowerCase().indexOf('<html') !== -1 || out.body.toLowerCase().indexOf('<!doctype html') !== -1;
+            var hasA = out.body.indexOf('autoindex_expected_a.txt') !== -1;
+            var hasB = out.body.indexOf('autoindex_expected_b.txt') !== -1;
+            var hasOutside = out.body.indexOf('outside_marker.txt') !== -1;
+            var ok = out.response.status === 200 && html && hasA && hasB && !hasOutside;
+            setResult('status=' + out.response.status + '\nhtml=' + html + '\nA=' + hasA + '\nB=' + hasB + '\noutside=' + hasOutside, ok);
+        } catch (e) {
+            setResult('Autoindex check failed: ' + e, false);
+        }
+    }
+
+    async function postOnlyGet() {
+        try {
+            var out = await fetchText('/post-only');
+            setResult('GET /post-only -> ' + out.response.status + ' (expect 405)', out.response.status === 405);
+        } catch (e) {
+            setResult('GET /post-only failed: ' + e, false);
+        }
+    }
+
+    async function postOnlyPost() {
+        try {
+            var out = await fetchText('/post-only/eval_post.txt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: 'post-only payload'
+            });
+            setResult('POST /post-only/eval_post.txt -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200 || out.response.status === 201);
+        } catch (e) {
+            setResult('POST /post-only failed: ' + e, false);
+        }
+    }
+
+    async function uploadFile() {
+        try {
+            var out = await fetchText('/upload/' + filename(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: document.getElementById('upload-body').value
+            });
+            setResult('POST upload -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200 || out.response.status === 201);
+        } catch (e) {
+            setResult('Upload failed: ' + e, false);
+        }
+    }
+
+    async function getFile() {
+        try {
+            var out = await fetchText('/upload/' + filename());
+            setResult('GET uploaded -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200);
+        } catch (e) {
+            setResult('GET uploaded failed: ' + e, false);
+        }
+    }
+
+    async function deleteFile() {
+        try {
+            var out = await fetchText('/delete/' + filename(), { method: 'DELETE' });
+            setResult('DELETE uploaded -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 204 || out.response.status === 200 || out.response.status === 404);
+        } catch (e) {
+            setResult('DELETE failed: ' + e, false);
+        }
+    }
+
+    async function tinyBodyFail() {
+        try {
+            var out = await fetchText('/tiny-body/too_big_browser.txt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: '0123456789ABCDEF0123'
+            });
+            setResult('POST tiny-body -> ' + out.response.status + ' (expect 413)\n' + shortText(out.body), out.response.status === 413);
+        } catch (e) {
+            setResult('tiny-body failed: ' + e, false);
+        }
+    }
+
+    async function cgiEnvGet() {
+        try {
+            var out = await fetchText('/cgi-bin/env_echo.py?alpha=1&beta=two');
+            setResult('CGI GET -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200);
+        } catch (e) {
+            setResult('CGI GET failed: ' + e, false);
+        }
+    }
+
+    async function cgiEnvPost() {
+        try {
+            var out = await fetchText('/cgi-bin/env_echo.py', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: 'known_payload_123'
+            });
+            setResult('CGI POST -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200);
+        } catch (e) {
+            setResult('CGI POST failed: ' + e, false);
+        }
+    }
+
+    async function cgiPathInfo() {
+        try {
+            var out = await fetchText('/cgi-bin/env_echo.py/extra?x=1');
+            setResult('CGI PATH_INFO -> ' + out.response.status + '\n' + shortText(out.body), out.response.status === 200);
+        } catch (e) {
+            setResult('CGI PATH_INFO failed: ' + e, false);
+        }
+    }
+
+    async function runMiniSuite() {
+        var failures = 0;
+        var lines = [];
+
+        async function check(name, fn) {
+            try {
+                var res = await fn();
+                if (res.ok) {
+                    lines.push('[OK] ' + name + ' -> ' + res.note);
+                } else {
+                    failures += 1;
+                    lines.push('[FAIL] ' + name + ' -> ' + res.note);
+                }
+            } catch (e) {
+                failures += 1;
+                lines.push('[FAIL] ' + name + ' -> ' + e);
+            }
+        }
+
+        await check('GET /with-index/', async function () {
+            var out = await fetchText('/with-index/');
+            return { ok: out.response.status === 200, note: 'status=' + out.response.status };
+        });
+
+        await check('GET /list/', async function () {
+            var out = await fetchText('/list/');
+            var ok = out.response.status === 200 && out.body.indexOf('autoindex_expected_a.txt') !== -1;
+            return { ok: ok, note: 'status=' + out.response.status };
+        });
+
+        await check('GET CGI env_echo', async function () {
+            var out = await fetchText('/cgi-bin/env_echo.py?alpha=1&beta=two');
+            return { ok: out.response.status === 200, note: 'status=' + out.response.status };
+        });
+
+        await check('HEAD /post-only', async function () {
+            var r = await fetch('/post-only', { method: 'HEAD' });
+            return { ok: r.status === 405, note: 'status=' + r.status };
+        });
+
+        setResult(lines.join('\n') + '\n\nSummary: ' + (failures === 0 ? 'all checks passed' : failures + ' check(s) failed'), failures === 0);
+    }
+</script>
+</body>
+</html>

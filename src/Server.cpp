@@ -14,7 +14,18 @@ const Route* Server::matchRoute(const std::string& path) const {
 
     for (size_t i = 0; i < _routes.size(); i++) {
         const std::string& routePath = _routes[i].getPath();
-        if (path.find(routePath) == 0 && routePath.length() > longestMatch) {
+        if (path.find(routePath) != 0)
+            continue;
+
+        bool boundaryOk = false;
+        if (routePath == "/")
+            boundaryOk = true;
+        else if (path.length() == routePath.length())
+            boundaryOk = true;
+        else if (path.length() > routePath.length() && path[routePath.length()] == '/')
+            boundaryOk = true;
+
+        if (boundaryOk && routePath.length() > longestMatch) {
             bestMatch = &_routes[i];
             longestMatch = routePath.length();
         }

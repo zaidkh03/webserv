@@ -23,11 +23,9 @@ bool Client::readRequest() {
     
     buffer[bytesRead] = '\0';
     updateActivity();
-    
-    _buffer.append(buffer, bytesRead);
-    
+
     // Try to parse the request
-    if (_request.parse(_buffer)) {
+    if (_request.parse(std::string(buffer, bytesRead))) {
         // Check Connection header
         std::string connection = _request.getHeader("Connection");
         if (connection == "keep-alive")

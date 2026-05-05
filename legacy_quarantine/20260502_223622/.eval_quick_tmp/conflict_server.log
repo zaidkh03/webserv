@@ -1,0 +1,7 @@
+[34m=== Webserv HTTP Server ===[0m
+Config file: /home/zsalah/Downloads/webserv-main/config/eval_port_conflict.conf
+[32mParsed 2 server block(s)[0m
+[32mServer 'webserv' listening on 127.0.0.1:18100[0m
+[31mError: Failed to bind to port 18100[0m
+[31mError: Failed to setup all configured servers[0m
+[31mFailed to initialize server[0m

@@ -1,0 +1,8 @@
+Quarantine Timestamp: 20260502_223622
+Root: /home/zsalah/Downloads/webserv-main
+
+Moved paths:
+- .eval_quick_tmp
+- obj
+- webserv
+- .eval_smoke.log

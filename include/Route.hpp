@@ -12,6 +12,8 @@ private:
     bool _autoindex;
     std::string _redirect;
     std::string _uploadPath;
+    bool _uploadEnabled;
+    size_t _maxBodySize;
     std::map<std::string, std::string> _cgiExtensions;
 
 public:
@@ -27,16 +29,21 @@ public:
     bool getAutoindex() const { return _autoindex; }
     const std::string& getRedirect() const { return _redirect; }
     const std::string& getUploadPath() const { return _uploadPath; }
+    bool getUploadEnabled() const { return _uploadEnabled; }
+    size_t getMaxBodySize() const { return _maxBodySize; }
     const std::map<std::string, std::string>& getCgiExtensions() const { return _cgiExtensions; }
 
     // Setters
     void setPath(const std::string& path) { _path = path; }
+    void clearMethods() { _methods.clear(); }
     void addMethod(const std::string& method) { _methods.push_back(method); }
     void setRoot(const std::string& root) { _root = root; }
     void setIndex(const std::string& index) { _index = index; }
     void setAutoindex(bool autoindex) { _autoindex = autoindex; }
     void setRedirect(const std::string& redirect) { _redirect = redirect; }
     void setUploadPath(const std::string& path) { _uploadPath = path; }
+    void setUploadEnabled(bool enabled) { _uploadEnabled = enabled; }
+    void setMaxBodySize(size_t size) { _maxBodySize = size; }
     void addCgiExtension(const std::string& ext, const std::string& path) {
         _cgiExtensions[ext] = path;
     }

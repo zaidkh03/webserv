@@ -44,30 +44,37 @@ void Request::parseURI() {
 }
 
 bool Request::parseChunkedBody(const std::string& data) {
-    static std::string remaining;
-    remaining += data;
-    
+    _chunkBuffer += data;
+
     while (true) {
-        size_t crlf = remaining.find("\r\n");
+        size_t crlf = _chunkBuffer.find("\r\n");
         if (crlf == std::string::npos)
-            break;
-            
-        std::string chunkSizeStr = remaining.substr(0, crlf);
-        size_t chunkSize;
-        std::istringstream(chunkSizeStr) >> std::hex >> chunkSize;
-        
+            return false;
+
+        std::string chunkSizeStr = _chunkBuffer.substr(0, crlf);
+        size_t semicolonPos = chunkSizeStr.find(';');
+        if (semicolonPos != std::string::npos)
+            chunkSizeStr = chunkSizeStr.substr(0, semicolonPos);
+
+        unsigned long chunkSize = 0;
+        std::istringstream iss(chunkSizeStr);
+        iss >> std::hex >> chunkSize;
+        if (iss.fail())
+            return false;
+
+        if (_chunkBuffer.length() < crlf + 2 + chunkSize + 2)
+            return false;
+
         if (chunkSize == 0) {
+            _chunkBuffer.erase(0, crlf + 4);
             _complete = true;
             return true;
         }
-        
-        if (remaining.length() < crlf + 2 + chunkSize + 2)
-            break;
-            
-        _body += remaining.substr(crlf + 2, chunkSize);
-        remaining = remaining.substr(crlf + 2 + chunkSize + 2);
+
+        _body += _chunkBuffer.substr(crlf + 2, chunkSize);
+        _chunkBuffer.erase(0, crlf + 2 + chunkSize + 2);
     }
-    
+
     return false;
 }
 
@@ -120,16 +127,26 @@ bool Request::parse(const std::string& data) {
             
         // Get body if present
         if (headerEnd + 4 < _rawRequest.length()) {
-            _body = _rawRequest.substr(headerEnd + 4);
+            std::string initialBody = _rawRequest.substr(headerEnd + 4);
+            if (_chunked) {
+                parseChunkedBody(initialBody);
+            } else {
+                _body = initialBody;
+            }
         }
     } else {
-        _body += data;
+        if (_chunked) {
+            parseChunkedBody(data);
+        } else {
+            _body += data;
+        }
     }
     
     // Check if request is complete
     if (_headersComplete) {
         if (_chunked) {
-            _complete = parseChunkedBody("");
+            if (!_complete)
+                _complete = parseChunkedBody("");
         } else if (_contentLength > 0) {
             _complete = (_body.length() >= _contentLength);
         } else {

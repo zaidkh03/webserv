@@ -9,6 +9,8 @@ class CGI {
 private:
     std::string _cgiPath;
     std::string _scriptPath;
+    std::string _scriptName;
+    std::string _pathInfo;
     const Request& _request;
     const Server& _server;
     std::map<std::string, std::string> _env;
@@ -18,7 +20,8 @@ private:
     void freeEnvArray(char** env);
 
 public:
-    CGI(const std::string& cgiPath, const std::string& scriptPath, 
+    CGI(const std::string& cgiPath, const std::string& scriptPath,
+        const std::string& scriptName, const std::string& pathInfo,
         const Request& request, const Server& server);
     ~CGI();
 

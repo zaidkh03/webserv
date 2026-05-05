@@ -1,5 +1,17 @@
 #include "../include/Config.hpp"
 
+static size_t parseSizeValue(const std::string& raw) {
+    if (raw.empty())
+        return 0;
+
+    size_t value = std::atoi(raw.c_str());
+    if (raw.find('M') != std::string::npos || raw.find('m') != std::string::npos)
+        value *= 1048576;
+    else if (raw.find('K') != std::string::npos || raw.find('k') != std::string::npos)
+        value *= 1024;
+    return value;
+}
+
 Config::Config() : _configFile("config/default.conf") {}
 
 Config::Config(const std::string& configFile) : _configFile(configFile) {}
@@ -41,7 +53,8 @@ void Config::parseRouteBlock(std::ifstream& file, Route& route) {
         if (tokens.empty())
             continue;
             
-        if (tokens[0] == "methods" && tokens.size() >= 2) {
+        if ((tokens[0] == "methods" || tokens[0] == "allowed_methods") && tokens.size() >= 2) {
+            route.clearMethods();
             for (size_t i = 1; i < tokens.size(); i++) {
                 std::string method = tokens[i];
                 if (method[method.length() - 1] == ';')
@@ -69,15 +82,29 @@ void Config::parseRouteBlock(std::ifstream& file, Route& route) {
         }
         else if (tokens[0] == "redirect" && tokens.size() >= 2) {
             std::string redir = tokens[1];
+            if (tokens.size() >= 3)
+                redir = tokens[2];
             if (redir[redir.length() - 1] == ';')
                 redir = redir.substr(0, redir.length() - 1);
             route.setRedirect(redir);
         }
-        else if (tokens[0] == "upload_path" && tokens.size() >= 2) {
+        else if ((tokens[0] == "upload_path" || tokens[0] == "upload_store") && tokens.size() >= 2) {
             std::string path = tokens[1];
             if (path[path.length() - 1] == ';')
                 path = path.substr(0, path.length() - 1);
             route.setUploadPath(path);
+        }
+        else if (tokens[0] == "upload_enable" && tokens.size() >= 2) {
+            std::string value = tokens[1];
+            if (value[value.length() - 1] == ';')
+                value = value.substr(0, value.length() - 1);
+            route.setUploadEnabled(value == "on" || value == "true");
+        }
+        else if (tokens[0] == "max_body_size" && tokens.size() >= 2) {
+            std::string value = tokens[1];
+            if (value[value.length() - 1] == ';')
+                value = value.substr(0, value.length() - 1);
+            route.setMaxBodySize(parseSizeValue(value));
         }
         else if (tokens[0] == "cgi" && tokens.size() >= 3) {
             std::string ext = tokens[1];
@@ -91,6 +118,9 @@ void Config::parseRouteBlock(std::ifstream& file, Route& route) {
 
 void Config::parseServerBlock(std::ifstream& file, Server& server) {
     std::string line;
+    std::string serverRoot;
+    std::string serverIndex;
+    std::map<std::string, std::string> serverCgiExtensions;
     
     while (std::getline(file, line)) {
         line = trim(line);
@@ -127,13 +157,18 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
             std::string size = tokens[1];
             if (size[size.length() - 1] == ';')
                 size = size.substr(0, size.length() - 1);
-            
-            size_t value = std::atoi(size.c_str());
-            if (size.find('M') != std::string::npos || size.find('m') != std::string::npos)
-                value *= 1048576;
-            else if (size.find('K') != std::string::npos || size.find('k') != std::string::npos)
-                value *= 1024;
-            server.setClientMaxBodySize(value);
+
+            server.setClientMaxBodySize(parseSizeValue(size));
+        }
+        else if (tokens[0] == "root" && tokens.size() >= 2) {
+            serverRoot = tokens[1];
+            if (serverRoot[serverRoot.length() - 1] == ';')
+                serverRoot = serverRoot.substr(0, serverRoot.length() - 1);
+        }
+        else if (tokens[0] == "index" && tokens.size() >= 2) {
+            serverIndex = tokens[1];
+            if (serverIndex[serverIndex.length() - 1] == ';')
+                serverIndex = serverIndex.substr(0, serverIndex.length() - 1);
         }
         else if (tokens[0] == "error_page" && tokens.size() >= 3) {
             int code = std::atoi(tokens[1].c_str());
@@ -141,6 +176,13 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
             if (path[path.length() - 1] == ';')
                 path = path.substr(0, path.length() - 1);
             server.addErrorPage(code, path);
+        }
+        else if (tokens[0] == "cgi" && tokens.size() >= 3) {
+            std::string ext = tokens[1];
+            std::string path = tokens[2];
+            if (path[path.length() - 1] == ';')
+                path = path.substr(0, path.length() - 1);
+            serverCgiExtensions[ext] = path;
         }
         else if (tokens[0] == "location" && tokens.size() >= 2) {
             std::string path = tokens[1];
@@ -159,6 +201,15 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
             
             Route route(path);
             parseRouteBlock(file, route);
+            if (route.getRoot().empty() && !serverRoot.empty())
+                route.setRoot(serverRoot);
+            if (route.getIndex().empty() && !serverIndex.empty())
+                route.setIndex(serverIndex);
+            for (std::map<std::string, std::string>::const_iterator it = serverCgiExtensions.begin();
+                 it != serverCgiExtensions.end(); ++it) {
+                if (route.getCgiPath(it->first).empty())
+                    route.addCgiExtension(it->first, it->second);
+            }
             server.addRoute(route);
         }
     }
