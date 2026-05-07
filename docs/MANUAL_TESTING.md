@@ -10,9 +10,9 @@ Use another terminal for the checks below.
 
 ## Basic Routing
 ```bash
-curl -i http://127.0.0.1:18080/
-curl -i http://127.0.0.1:18081/
-curl -i http://127.0.0.1:18080/with-index/
+curl -i http://127.0.0.1:8080/
+curl -i http://127.0.0.1:8081/
+curl -i http://127.0.0.1:8080/with-index/
 ```
 
 Expected:
@@ -21,7 +21,7 @@ Expected:
 
 ## Redirect
 ```bash
-curl -i http://127.0.0.1:18080/redirect-me
+curl -i http://127.0.0.1:8080/redirect-me
 ```
 
 Expected:
@@ -31,10 +31,10 @@ Expected:
 ## Upload and Delete
 ```bash
 curl -i -X POST -H "Content-Type: text/plain" --data "hello42" \
-  http://127.0.0.1:18080/upload/manual.txt
-curl -i http://127.0.0.1:18080/upload/manual.txt
-curl -i -X DELETE http://127.0.0.1:18080/delete/manual.txt
-curl -i http://127.0.0.1:18080/upload/manual.txt
+  http://127.0.0.1:8080/upload/manual.txt
+curl -i http://127.0.0.1:8080/upload/manual.txt
+curl -i -X DELETE http://127.0.0.1:8080/delete/manual.txt
+curl -i http://127.0.0.1:8080/upload/manual.txt
 ```
 
 Expected:
@@ -46,7 +46,7 @@ Expected:
 ## Body Limit Enforcement
 ```bash
 curl -i -X POST -H "Content-Type: text/plain" --data "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" \
-  http://127.0.0.1:18080/tiny-body/too_big.txt
+  http://127.0.0.1:8080/tiny-body/too_big.txt
 ```
 
 Expected:
@@ -54,8 +54,8 @@ Expected:
 
 ## Autoindex
 ```bash
-curl -i http://127.0.0.1:18080/list/
-curl -i http://127.0.0.1:18080/list
+curl -i http://127.0.0.1:8080/list/
+curl -i http://127.0.0.1:8080/list
 ```
 
 Expected:
@@ -64,8 +64,8 @@ Expected:
 
 ## HEAD Policy
 ```bash
-curl -I http://127.0.0.1:18080/with-index/
-curl -I http://127.0.0.1:18080/post-only
+curl -I http://127.0.0.1:8080/with-index/
+curl -I http://127.0.0.1:8080/post-only
 ```
 
 Expected:
@@ -74,9 +74,9 @@ Expected:
 
 ## CGI Env Echo
 ```bash
-curl -i "http://127.0.0.1:18080/cgi-bin/env_echo.py?alpha=1&beta=two"
+curl -i "http://127.0.0.1:8080/cgi-bin/env_echo.py?alpha=1&beta=two"
 curl -i -X POST -H "Content-Type: text/plain" --data "payload123" \
-  http://127.0.0.1:18080/cgi-bin/env_echo.py
+  http://127.0.0.1:8080/cgi-bin/env_echo.py
 ```
 
 Expected:
@@ -85,8 +85,8 @@ Expected:
 
 ## Malformed Request Resilience
 ```bash
-printf 'GETTTTT / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n' | nc 127.0.0.1 18080
-curl -i http://127.0.0.1:18080/with-index/
+printf 'GETTTTT / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n' | nc 127.0.0.1 8080
+curl -i http://127.0.0.1:8080/with-index/
 ```
 
 Expected:

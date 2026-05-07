@@ -339,7 +339,7 @@
         <a href="#routes">Routes</a>
         <a href="#interactive">Interactive</a>
         <a href="#terminal">Terminal</a>
-        <a href="http://127.0.0.1:18081/">Site B</a>
+        <a href="http://127.0.0.1:8081/">Site B</a>
     </div>
 </nav>
 
@@ -350,8 +350,8 @@
 </header>
 
 <div class="status-bar">
-    <div class="status-chip"><span class="dot dot-blue"></span>Site A: <span class="code">127.0.0.1:18080</span></div>
-    <div class="status-chip"><span class="dot dot-purple"></span>Site B: <span class="code">127.0.0.1:18081</span></div>
+    <div class="status-chip"><span class="dot dot-blue"></span>Site A: <span class="code">127.0.0.1:8080</span></div>
+    <div class="status-chip"><span class="dot dot-purple"></span>Site B: <span class="code">127.0.0.1:8081</span></div>
     <div class="status-chip"><span class="dot dot-green"></span>Config: <span class="code">config/eval_suite.conf</span></div>
 </div>
 
@@ -398,8 +398,8 @@
 
             <div class="item">
                 <strong>Secondary site</strong>
-                <span><span class="code">http://127.0.0.1:18081/</span></span>
-                <a class="btn" href="http://127.0.0.1:18081/">Open Site B</a>
+                <span><span class="code">http://127.0.0.1:8081/</span></span>
+                <a class="btn" href="http://127.0.0.1:8081/">Open Site B</a>
             </div>
         </div>
     </section>
@@ -461,15 +461,15 @@
         <h2>Terminal-only Protocol Cases</h2>
         <div class="terminal">
 # Unknown method
-printf 'GETTTTT / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n' | nc 127.0.0.1 18080
+printf 'GETTTTT / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n' | nc 127.0.0.1 8080
 
 # Broken header
-printf 'GET / HTTP/1.1\r\nHost 127.0.0.1\r\n\r\n' | nc 127.0.0.1 18080
+printf 'GET / HTTP/1.1\r\nHost 127.0.0.1\r\n\r\n' | nc 127.0.0.1 8080
 
 # Chunked request arrival
 python3 - <<'PY'
 import socket, time
-s=socket.socket(); s.connect(('127.0.0.1',18080))
+s=socket.socket(); s.connect(('127.0.0.1',8080))
 s.sendall(b"POST /cgi-bin/env_echo.py HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nTransfer-Encoding: chunked\\r\\nContent-Type: text/plain\\r\\n\\r\\n")
 for part in [b"5\\r\\nhello\\r\\n", b"6\\r\\n world\\r\\n", b"0\\r\\n\\r\\n"]:
     s.sendall(part); time.sleep(0.2)

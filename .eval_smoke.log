@@ -1,0 +1,6 @@
+[34m=== Webserv HTTP Server ===[0m
+Config file: /sgoinfre/zalkhali/projects/42/core/milestone 5/ggggit/config/eval_suite.conf
+[32mParsed 2 server block(s)[0m
+[31mError: Failed to bind to port 8080[0m
+[31mError: Failed to setup all configured servers[0m
+[31mFailed to initialize server[0m
