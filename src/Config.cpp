@@ -118,9 +118,8 @@ void Config::parseRouteBlock(std::ifstream& file, Route& route) {
 
 void Config::parseServerBlock(std::ifstream& file, Server& server) {
     std::string line;
-    std::string serverRoot;
-    std::string serverIndex;
-    std::map<std::string, std::string> serverCgiExtensions;
+    Route serverDefaults("/");
+    std::vector<Route> pendingRoutes;
     
     while (std::getline(file, line)) {
         line = trim(line);
@@ -160,15 +159,58 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
 
             server.setClientMaxBodySize(parseSizeValue(size));
         }
+        else if ((tokens[0] == "methods" || tokens[0] == "allowed_methods") && tokens.size() >= 2) {
+            serverDefaults.clearMethods();
+            for (size_t i = 1; i < tokens.size(); i++) {
+                std::string method = tokens[i];
+                if (method[method.length() - 1] == ';')
+                    method = method.substr(0, method.length() - 1);
+                serverDefaults.addMethod(method);
+            }
+        }
+        else if (tokens[0] == "autoindex" && tokens.size() >= 2) {
+            std::string val = tokens[1];
+            if (val[val.length() - 1] == ';')
+                val = val.substr(0, val.length() - 1);
+            serverDefaults.setAutoindex(val == "on" || val == "true");
+        }
+        else if (tokens[0] == "redirect" && tokens.size() >= 2) {
+            std::string redir = tokens[1];
+            if (tokens.size() >= 3)
+                redir = tokens[2];
+            if (redir[redir.length() - 1] == ';')
+                redir = redir.substr(0, redir.length() - 1);
+            serverDefaults.setRedirect(redir);
+        }
+        else if ((tokens[0] == "upload_path" || tokens[0] == "upload_store") && tokens.size() >= 2) {
+            std::string path = tokens[1];
+            if (path[path.length() - 1] == ';')
+                path = path.substr(0, path.length() - 1);
+            serverDefaults.setUploadPath(path);
+        }
+        else if (tokens[0] == "upload_enable" && tokens.size() >= 2) {
+            std::string value = tokens[1];
+            if (value[value.length() - 1] == ';')
+                value = value.substr(0, value.length() - 1);
+            serverDefaults.setUploadEnabled(value == "on" || value == "true");
+        }
+        else if (tokens[0] == "max_body_size" && tokens.size() >= 2) {
+            std::string value = tokens[1];
+            if (value[value.length() - 1] == ';')
+                value = value.substr(0, value.length() - 1);
+            serverDefaults.setMaxBodySize(parseSizeValue(value));
+        }
         else if (tokens[0] == "root" && tokens.size() >= 2) {
-            serverRoot = tokens[1];
-            if (serverRoot[serverRoot.length() - 1] == ';')
-                serverRoot = serverRoot.substr(0, serverRoot.length() - 1);
+            std::string root = tokens[1];
+            if (root[root.length() - 1] == ';')
+                root = root.substr(0, root.length() - 1);
+            serverDefaults.setRoot(root);
         }
         else if (tokens[0] == "index" && tokens.size() >= 2) {
-            serverIndex = tokens[1];
-            if (serverIndex[serverIndex.length() - 1] == ';')
-                serverIndex = serverIndex.substr(0, serverIndex.length() - 1);
+            std::string index = tokens[1];
+            if (index[index.length() - 1] == ';')
+                index = index.substr(0, index.length() - 1);
+            serverDefaults.setIndex(index);
         }
         else if (tokens[0] == "error_page" && tokens.size() >= 3) {
             int code = std::atoi(tokens[1].c_str());
@@ -182,7 +224,7 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
             std::string path = tokens[2];
             if (path[path.length() - 1] == ';')
                 path = path.substr(0, path.length() - 1);
-            serverCgiExtensions[ext] = path;
+            serverDefaults.addCgiExtension(ext, path);
         }
         else if (tokens[0] == "location" && tokens.size() >= 2) {
             std::string path = tokens[1];
@@ -201,17 +243,42 @@ void Config::parseServerBlock(std::ifstream& file, Server& server) {
             
             Route route(path);
             parseRouteBlock(file, route);
-            if (route.getRoot().empty() && !serverRoot.empty())
-                route.setRoot(serverRoot);
-            if (route.getIndex().empty() && !serverIndex.empty())
-                route.setIndex(serverIndex);
-            for (std::map<std::string, std::string>::const_iterator it = serverCgiExtensions.begin();
-                 it != serverCgiExtensions.end(); ++it) {
-                if (route.getCgiPath(it->first).empty())
-                    route.addCgiExtension(it->first, it->second);
-            }
-            server.addRoute(route);
+            pendingRoutes.push_back(route);
         }
+    }
+
+    for (size_t i = 0; i < pendingRoutes.size(); i++) {
+        Route route = pendingRoutes[i];
+
+        if (!route.hasMethods() && serverDefaults.hasMethods()) {
+            route.clearMethods();
+            const std::vector<std::string>& methods = serverDefaults.getMethods();
+            for (size_t j = 0; j < methods.size(); j++)
+                route.addMethod(methods[j]);
+        }
+        if (!route.hasRoot() && serverDefaults.hasRoot())
+            route.setRoot(serverDefaults.getRoot());
+        if (!route.hasIndex() && serverDefaults.hasIndex())
+            route.setIndex(serverDefaults.getIndex());
+        if (!route.hasAutoindex() && serverDefaults.hasAutoindex())
+            route.setAutoindex(serverDefaults.getAutoindex());
+        if (!route.hasRedirect() && serverDefaults.hasRedirect())
+            route.setRedirect(serverDefaults.getRedirect());
+        if (!route.hasUploadPath() && serverDefaults.hasUploadPath())
+            route.setUploadPath(serverDefaults.getUploadPath());
+        if (!route.hasUploadEnabled() && serverDefaults.hasUploadEnabled())
+            route.setUploadEnabled(serverDefaults.getUploadEnabled());
+        if (!route.hasMaxBodySize() && serverDefaults.hasMaxBodySize())
+            route.setMaxBodySize(serverDefaults.getMaxBodySize());
+
+        const std::map<std::string, std::string>& serverCgiExtensions = serverDefaults.getCgiExtensions();
+        for (std::map<std::string, std::string>::const_iterator it = serverCgiExtensions.begin();
+             it != serverCgiExtensions.end(); ++it) {
+            if (route.getCgiPath(it->first).empty())
+                route.addCgiExtension(it->first, it->second);
+        }
+
+        server.addRoute(route);
     }
 }
 

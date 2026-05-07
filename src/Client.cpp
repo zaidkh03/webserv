@@ -1,7 +1,7 @@
 #include "../include/Client.hpp"
 
 Client::Client(int socket, const Server* server)
-    : _socket(socket), _responseBytesSent(0), _server(server), _keepAlive(false) {
+    : _socket(socket), _responseBytesSent(0), _server(server), _keepAlive(false), _disconnected(false) {
     _lastActivity = time(NULL);
     
     // Set socket to non-blocking
@@ -14,10 +14,12 @@ Client::~Client() {
 }
 
 bool Client::readRequest() {
+    _disconnected = false;
     char buffer[BUFFER_SIZE];
     ssize_t bytesRead = recv(_socket, buffer, sizeof(buffer) - 1, 0);
     
     if (bytesRead <= 0) {
+        _disconnected = true;
         return false;
     }
     
@@ -72,5 +74,6 @@ void Client::reset() {
     _buffer.clear();
     _response.clear();
     _responseBytesSent = 0;
+    _disconnected = false;
     updateActivity();
 }

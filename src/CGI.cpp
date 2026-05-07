@@ -63,8 +63,14 @@ std::string CGI::execute() {
     int pipeIn[2];
     int pipeOut[2];
     
-    if (pipe(pipeIn) < 0 || pipe(pipeOut) < 0) {
+    if (pipe(pipeIn) < 0) {
         std::cerr << RED << "CGI: pipe failed" << RESET << std::endl;
+        return "";
+    }
+    if (pipe(pipeOut) < 0) {
+        std::cerr << RED << "CGI: pipe failed" << RESET << std::endl;
+        close(pipeIn[0]);
+        close(pipeIn[1]);
         return "";
     }
     

@@ -15,6 +15,14 @@ private:
     bool _uploadEnabled;
     size_t _maxBodySize;
     std::map<std::string, std::string> _cgiExtensions;
+    bool _hasMethods;
+    bool _hasRoot;
+    bool _hasIndex;
+    bool _hasAutoindex;
+    bool _hasRedirect;
+    bool _hasUploadPath;
+    bool _hasUploadEnabled;
+    bool _hasMaxBodySize;
 
 public:
     Route();
@@ -32,18 +40,26 @@ public:
     bool getUploadEnabled() const { return _uploadEnabled; }
     size_t getMaxBodySize() const { return _maxBodySize; }
     const std::map<std::string, std::string>& getCgiExtensions() const { return _cgiExtensions; }
+    bool hasMethods() const { return _hasMethods; }
+    bool hasRoot() const { return _hasRoot; }
+    bool hasIndex() const { return _hasIndex; }
+    bool hasAutoindex() const { return _hasAutoindex; }
+    bool hasRedirect() const { return _hasRedirect; }
+    bool hasUploadPath() const { return _hasUploadPath; }
+    bool hasUploadEnabled() const { return _hasUploadEnabled; }
+    bool hasMaxBodySize() const { return _hasMaxBodySize; }
 
     // Setters
     void setPath(const std::string& path) { _path = path; }
-    void clearMethods() { _methods.clear(); }
-    void addMethod(const std::string& method) { _methods.push_back(method); }
-    void setRoot(const std::string& root) { _root = root; }
-    void setIndex(const std::string& index) { _index = index; }
-    void setAutoindex(bool autoindex) { _autoindex = autoindex; }
-    void setRedirect(const std::string& redirect) { _redirect = redirect; }
-    void setUploadPath(const std::string& path) { _uploadPath = path; }
-    void setUploadEnabled(bool enabled) { _uploadEnabled = enabled; }
-    void setMaxBodySize(size_t size) { _maxBodySize = size; }
+    void clearMethods() { _methods.clear(); _hasMethods = true; }
+    void addMethod(const std::string& method) { _methods.push_back(method); _hasMethods = true; }
+    void setRoot(const std::string& root) { _root = root; _hasRoot = true; }
+    void setIndex(const std::string& index) { _index = index; _hasIndex = true; }
+    void setAutoindex(bool autoindex) { _autoindex = autoindex; _hasAutoindex = true; }
+    void setRedirect(const std::string& redirect) { _redirect = redirect; _hasRedirect = true; }
+    void setUploadPath(const std::string& path) { _uploadPath = path; _hasUploadPath = true; }
+    void setUploadEnabled(bool enabled) { _uploadEnabled = enabled; _hasUploadEnabled = true; }
+    void setMaxBodySize(size_t size) { _maxBodySize = size; _hasMaxBodySize = true; }
     void addCgiExtension(const std::string& ext, const std::string& path) {
         _cgiExtensions[ext] = path;
     }

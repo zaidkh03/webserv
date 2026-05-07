@@ -1,4 +1,68 @@
 #include "../include/Response.hpp"
+#include <cctype>
+
+namespace {
+
+std::string htmlEscape(const std::string& value) {
+    std::string escaped;
+    for (size_t i = 0; i < value.length(); ++i) {
+        switch (value[i]) {
+            case '&': escaped += "&amp;"; break;
+            case '<': escaped += "&lt;"; break;
+            case '>': escaped += "&gt;"; break;
+            case '"': escaped += "&quot;"; break;
+            case '\'': escaped += "&#39;"; break;
+            default: escaped += value[i]; break;
+        }
+    }
+    return escaped;
+}
+
+std::string normalizeRequestUri(const std::string& uri) {
+    std::string normalized = uri;
+    if (normalized.empty())
+        normalized = "/";
+    else if (normalized[0] != '/')
+        normalized = "/" + normalized;
+    return normalized;
+}
+
+std::string ensureTrailingSlash(const std::string& uri) {
+    if (uri.empty())
+        return "/";
+    if (uri[uri.length() - 1] == '/')
+        return uri;
+    return uri + "/";
+}
+
+std::string parentDirectoryUri(const std::string& uri) {
+    std::string normalized = normalizeRequestUri(uri);
+    while (normalized.length() > 1 && normalized[normalized.length() - 1] == '/')
+        normalized.erase(normalized.length() - 1);
+
+    size_t lastSlash = normalized.find_last_of('/');
+    if (lastSlash == std::string::npos || lastSlash == 0)
+        return "/";
+    return normalized.substr(0, lastSlash + 1);
+}
+
+std::string urlEncodePathSegment(const std::string& value) {
+    static const char* hex = "0123456789ABCDEF";
+    std::string encoded;
+    for (size_t i = 0; i < value.length(); ++i) {
+        unsigned char c = static_cast<unsigned char>(value[i]);
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            encoded += static_cast<char>(c);
+        } else {
+            encoded += '%';
+            encoded += hex[c >> 4];
+            encoded += hex[c & 0x0F];
+        }
+    }
+    return encoded;
+}
+
+} // namespace
 
 Response::Response() : _statusCode(200) {
     setDefaultHeaders();
@@ -22,6 +86,7 @@ std::string Response::getStatusMessage(int code) {
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
+        case 411: return "Length Required";
         case 413: return "Payload Too Large";
         case 500: return "Internal Server Error";
         case 501: return "Not Implemented";
@@ -110,11 +175,14 @@ std::string Response::buildRedirect(const std::string& location) {
 std::string Response::buildDirectoryListing(const std::string& path, const std::string& uri) {
     setStatusCode(200);
     _headers["Content-Type"] = "text/html";
+
+    std::string normalizedUri = normalizeRequestUri(uri);
+    std::string baseUri = ensureTrailingSlash(normalizedUri);
     
     std::ostringstream html;
     html << "<!DOCTYPE html>\n"
          << "<html>\n<head>\n"
-         << "<title>Index of " << uri << "</title>\n"
+         << "<title>Index of " << htmlEscape(normalizedUri) << "</title>\n"
          << "<style>"
          << "body{font-family:Arial;padding:20px;}"
          << "table{border-collapse:collapse;width:100%;}"
@@ -125,13 +193,15 @@ std::string Response::buildDirectoryListing(const std::string& path, const std::
          << "a:hover{text-decoration:underline;}"
          << "</style>\n"
          << "</head>\n<body>\n"
-         << "<h1>Index of " << uri << "</h1>\n"
+         << "<h1>Index of " << htmlEscape(normalizedUri) << "</h1>\n"
          << "<table>\n"
          << "<tr><th>Name</th><th>Size</th><th>Modified</th></tr>\n";
     
     // Parent directory
-    if (uri != "/") {
-        html << "<tr><td><a href=\"../\">../</a></td><td>-</td><td>-</td></tr>\n";
+    if (normalizedUri != "/") {
+        std::string parentHref = parentDirectoryUri(normalizedUri);
+        html << "<tr><td><a href=\"" << htmlEscape(parentHref)
+             << "\">../</a></td><td>-</td><td>-</td></tr>\n";
     }
     
     DIR* dir = opendir(path.c_str());
@@ -164,9 +234,13 @@ std::string Response::buildDirectoryListing(const std::string& path, const std::
                 
                 char timeStr[100];
                 strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", localtime(&st.st_mtime));
+
+                std::string href = baseUri + urlEncodePathSegment(name);
+                if (isDir)
+                    href += "/";
                 
-                html << "<tr><td><a href=\"" << displayName << "\">" 
-                     << displayName << "</a></td>"
+                html << "<tr><td><a href=\"" << htmlEscape(href) << "\">" 
+                     << htmlEscape(displayName) << "</a></td>"
                      << "<td>" << size.str() << "</td>"
                      << "<td>" << timeStr << "</td></tr>\n";
             }

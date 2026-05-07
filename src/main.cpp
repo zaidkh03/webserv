@@ -15,13 +15,105 @@ void signalHandler(int signum) {
     g_running = 0;
 }
 
+static std::string stripResponseBody(const std::string& rawResponse);
+
+namespace {
+
+std::string trimSpaces(const std::string& value) {
+    size_t start = value.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos)
+        return "";
+    size_t end = value.find_last_not_of(" \t\r\n");
+    return value.substr(start, end - start + 1);
+}
+
+std::string toLowerAscii(const std::string& value) {
+    std::string lowered = value;
+    for (size_t i = 0; i < lowered.length(); i++) {
+        if (lowered[i] >= 'A' && lowered[i] <= 'Z')
+            lowered[i] = static_cast<char>(lowered[i] - 'A' + 'a');
+    }
+    return lowered;
+}
+
+void applyCgiOutputToResponse(Response& response, const std::string& cgiOutput) {
+    size_t headerEnd = cgiOutput.find("\r\n\r\n");
+    size_t separatorLen = 4;
+    if (headerEnd == std::string::npos) {
+        headerEnd = cgiOutput.find("\n\n");
+        separatorLen = 2;
+    }
+
+    int statusCode = 200;
+    bool hasContentType = false;
+    std::string body;
+
+    if (headerEnd != std::string::npos) {
+        std::string headers = cgiOutput.substr(0, headerEnd);
+        body = cgiOutput.substr(headerEnd + separatorLen);
+
+        std::istringstream stream(headers);
+        std::string line;
+        while (std::getline(stream, line)) {
+            if (!line.empty() && line[line.length() - 1] == '\r')
+                line = line.substr(0, line.length() - 1);
+            if (line.empty())
+                continue;
+
+            size_t colon = line.find(':');
+            if (colon == std::string::npos)
+                continue;
+
+            std::string key = trimSpaces(line.substr(0, colon));
+            std::string value = trimSpaces(line.substr(colon + 1));
+            std::string lowerKey = toLowerAscii(key);
+
+            if (lowerKey == "status") {
+                std::istringstream statusStream(value);
+                int parsedStatus = 0;
+                statusStream >> parsedStatus;
+                if (parsedStatus >= 100 && parsedStatus <= 599)
+                    statusCode = parsedStatus;
+                continue;
+            }
+
+            if (lowerKey == "content-length")
+                continue;
+
+            if (lowerKey == "content-type")
+                hasContentType = true;
+
+            response.setHeader(key, value);
+        }
+    } else {
+        body = cgiOutput;
+    }
+
+    response.setStatusCode(statusCode);
+    response.setBody(body);
+    if (!hasContentType)
+        response.setHeader("Content-Type", "text/html");
+}
+
+} // namespace
+
 class WebServer {
 private:
+    struct CgiTask {
+        pid_t workerPid;
+        int outputFd;
+        int clientSocket;
+        bool isHead;
+        std::string output;
+    };
+
     Config _config;
     std::vector<Server> _servers;
     std::vector<struct pollfd> _pollFds;
     std::map<int, Client*> _clients;
     std::map<int, Server*> _serverSockets;
+    std::map<int, CgiTask> _cgiTasks;
+    std::map<int, int> _clientToCgiFd;
 
     bool setupServers();
     void acceptConnection(Server* server);
@@ -35,6 +127,12 @@ private:
     bool resolveCgiScript(const Request& req, const Route* route,
                           std::string& cgiPath, std::string& scriptPath,
                           std::string& scriptName, std::string& pathInfo);
+    bool startAsyncCgi(Client* client, const Route* route, bool isHead);
+    void handleCgiOutput(int outputFd);
+    void finishCgiTask(int outputFd, bool readError);
+    void setPollEvents(int fd, short events);
+    void cleanupCgiForClient(int clientSocket);
+    bool isCgiOutputFd(int fd) const;
 
 public:
     WebServer(const std::string& configFile);
@@ -116,6 +214,250 @@ void WebServer::acceptConnection(Server* server) {
               << inet_ntoa(clientAddr.sin_addr) << RESET << std::endl;
 }
 
+bool WebServer::isCgiOutputFd(int fd) const {
+    return _cgiTasks.find(fd) != _cgiTasks.end();
+}
+
+void WebServer::setPollEvents(int fd, short events) {
+    for (size_t i = 0; i < _pollFds.size(); i++) {
+        if (_pollFds[i].fd == fd) {
+            _pollFds[i].events = events;
+            return;
+        }
+    }
+}
+
+void WebServer::cleanupCgiForClient(int clientSocket) {
+    std::map<int, int>::iterator mapIt = _clientToCgiFd.find(clientSocket);
+    if (mapIt == _clientToCgiFd.end())
+        return;
+
+    int outputFd = mapIt->second;
+    _clientToCgiFd.erase(mapIt);
+
+    for (std::vector<struct pollfd>::iterator it = _pollFds.begin();
+         it != _pollFds.end(); ++it) {
+        if (it->fd == outputFd) {
+            _pollFds.erase(it);
+            break;
+        }
+    }
+
+    std::map<int, CgiTask>::iterator taskIt = _cgiTasks.find(outputFd);
+    if (taskIt != _cgiTasks.end()) {
+        pid_t workerPid = taskIt->second.workerPid;
+        close(outputFd);
+        if (workerPid > 0)
+            kill(workerPid, SIGKILL);
+        int status = 0;
+        if (workerPid > 0)
+            waitpid(workerPid, &status, 0);
+        _cgiTasks.erase(taskIt);
+    }
+}
+
+bool WebServer::startAsyncCgi(Client* client, const Route* route, bool isHead) {
+    if (!client || !route || !route->getRedirect().empty())
+        return false;
+
+    const Request& req = client->getRequest();
+    if (req.getMethod() == "INVALID" || req.getMethod() == "BADHOST")
+        return false;
+
+    std::string effectiveMethod = req.getMethod();
+    if (isHead)
+        effectiveMethod = "GET";
+
+    if (effectiveMethod != "GET" && effectiveMethod != "POST")
+        return false;
+
+    bool allowed = isHead ? route->isMethodAllowed("GET") : route->isMethodAllowed(effectiveMethod);
+    if (!allowed)
+        return false;
+
+    if (effectiveMethod == "POST" &&
+        req.getHeader("Content-Length").empty() &&
+        req.getHeader("Transfer-Encoding").empty()) {
+        return false;
+    }
+
+    if (effectiveMethod == "POST") {
+        size_t maxBodySize = client->getServer()->getClientMaxBodySize();
+        if (route->getMaxBodySize() > 0)
+            maxBodySize = route->getMaxBodySize();
+
+        if (req.getBody().length() > maxBodySize) {
+            Response response;
+            if (req.getHeader("Connection") == "keep-alive")
+                response.setHeader("Connection", "keep-alive");
+            else
+                response.setHeader("Connection", "close");
+            std::string errorPage = response.buildErrorPage(413, *client->getServer());
+            if (isHead)
+                errorPage = stripResponseBody(errorPage);
+            client->setResponse(errorPage);
+            setPollEvents(client->getSocket(), POLLOUT);
+            return true;
+        }
+    }
+
+    std::string cgiPath;
+    std::string scriptPath;
+    std::string scriptName;
+    std::string pathInfo;
+    if (!resolveCgiScript(req, route, cgiPath, scriptPath, scriptName, pathInfo))
+        return false;
+
+    int outputPipe[2];
+    if (pipe(outputPipe) < 0) {
+        Response response;
+        if (req.getHeader("Connection") == "keep-alive")
+            response.setHeader("Connection", "keep-alive");
+        else
+            response.setHeader("Connection", "close");
+        std::string errorPage = response.buildErrorPage(500, *client->getServer());
+        if (isHead)
+            errorPage = stripResponseBody(errorPage);
+        client->setResponse(errorPage);
+        setPollEvents(client->getSocket(), POLLOUT);
+        return true;
+    }
+
+    pid_t workerPid = fork();
+    if (workerPid < 0) {
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        Response response;
+        if (req.getHeader("Connection") == "keep-alive")
+            response.setHeader("Connection", "keep-alive");
+        else
+            response.setHeader("Connection", "close");
+        std::string errorPage = response.buildErrorPage(500, *client->getServer());
+        if (isHead)
+            errorPage = stripResponseBody(errorPage);
+        client->setResponse(errorPage);
+        setPollEvents(client->getSocket(), POLLOUT);
+        return true;
+    }
+
+    if (workerPid == 0) {
+        for (size_t i = 0; i < _pollFds.size(); i++) {
+            int fd = _pollFds[i].fd;
+            if (fd > 2 && fd != outputPipe[1])
+                close(fd);
+        }
+
+        close(outputPipe[0]);
+        CGI cgi(cgiPath, scriptPath, scriptName, pathInfo, req, *client->getServer());
+        std::string cgiOutput = cgi.execute();
+        if (!cgiOutput.empty()) {
+            const char* data = cgiOutput.c_str();
+            size_t total = 0;
+            while (total < cgiOutput.length()) {
+                ssize_t written = write(outputPipe[1], data + total, cgiOutput.length() - total);
+                if (written <= 0)
+                    break;
+                total += static_cast<size_t>(written);
+            }
+        }
+        close(outputPipe[1]);
+        _exit(cgiOutput.empty() ? 1 : 0);
+    }
+
+    close(outputPipe[1]);
+
+    struct pollfd pfd;
+    pfd.fd = outputPipe[0];
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    _pollFds.push_back(pfd);
+
+    CgiTask task;
+    task.workerPid = workerPid;
+    task.outputFd = outputPipe[0];
+    task.clientSocket = client->getSocket();
+    task.isHead = isHead;
+    _cgiTasks[outputPipe[0]] = task;
+    _clientToCgiFd[client->getSocket()] = outputPipe[0];
+
+    // Pause socket activity until CGI is done.
+    setPollEvents(client->getSocket(), 0);
+    return true;
+}
+
+void WebServer::finishCgiTask(int outputFd, bool readError) {
+    std::map<int, CgiTask>::iterator taskIt = _cgiTasks.find(outputFd);
+    if (taskIt == _cgiTasks.end())
+        return;
+
+    CgiTask task = taskIt->second;
+    _cgiTasks.erase(taskIt);
+
+    std::map<int, int>::iterator clientMapIt = _clientToCgiFd.find(task.clientSocket);
+    if (clientMapIt != _clientToCgiFd.end() && clientMapIt->second == outputFd)
+        _clientToCgiFd.erase(clientMapIt);
+
+    for (std::vector<struct pollfd>::iterator it = _pollFds.begin();
+         it != _pollFds.end(); ++it) {
+        if (it->fd == outputFd) {
+            _pollFds.erase(it);
+            break;
+        }
+    }
+
+    close(outputFd);
+
+    int workerStatus = 0;
+    pid_t waited = waitpid(task.workerPid, &workerStatus, WNOHANG);
+    if (waited == 0)
+        waited = waitpid(task.workerPid, &workerStatus, 0);
+
+    std::map<int, Client*>::iterator clientIt = _clients.find(task.clientSocket);
+    if (clientIt == _clients.end())
+        return;
+
+    Client* client = clientIt->second;
+    Response response;
+    if (client->getRequest().getHeader("Connection") == "keep-alive")
+        response.setHeader("Connection", "keep-alive");
+    else
+        response.setHeader("Connection", "close");
+
+    bool workerOk = (waited > 0 && WIFEXITED(workerStatus) && WEXITSTATUS(workerStatus) == 0);
+    bool success = (!readError && workerOk && !task.output.empty());
+
+    std::string rawResponse;
+    if (success) {
+        applyCgiOutputToResponse(response, task.output);
+        rawResponse = response.build();
+    } else {
+        rawResponse = response.buildErrorPage(500, *client->getServer());
+    }
+
+    if (task.isHead)
+        rawResponse = stripResponseBody(rawResponse);
+    client->setResponse(rawResponse);
+    setPollEvents(task.clientSocket, POLLOUT);
+}
+
+void WebServer::handleCgiOutput(int outputFd) {
+    std::map<int, CgiTask>::iterator taskIt = _cgiTasks.find(outputFd);
+    if (taskIt == _cgiTasks.end())
+        return;
+
+    char buffer[BUFFER_SIZE];
+    ssize_t bytesRead = read(outputFd, buffer, sizeof(buffer));
+    if (bytesRead > 0) {
+        taskIt->second.output.append(buffer, bytesRead);
+        return;
+    }
+
+    if (bytesRead == 0)
+        finishCgiTask(outputFd, false);
+    else
+        finishCgiTask(outputFd, true);
+}
+
 std::string WebServer::getFullPath(const std::string& uri, const Route* route) {
     std::string decodedUri = Response::urlDecode(uri);
 
@@ -189,22 +531,7 @@ Response WebServer::handleGET(const Request& req, const Route* route, const Serv
         std::string cgiOutput = cgi.execute();
 
         if (!cgiOutput.empty()) {
-            size_t headerEnd = cgiOutput.find("\r\n\r\n");
-            size_t bodyStart = std::string::npos;
-            if (headerEnd != std::string::npos)
-                bodyStart = headerEnd + 4;
-            else {
-                headerEnd = cgiOutput.find("\n\n");
-                if (headerEnd != std::string::npos)
-                    bodyStart = headerEnd + 2;
-            }
-
-            if (bodyStart != std::string::npos)
-                response.setBody(cgiOutput.substr(bodyStart));
-            else
-                response.setBody(cgiOutput);
-            response.setStatusCode(200);
-            response.setHeader("Content-Type", "text/html");
+            applyCgiOutputToResponse(response, cgiOutput);
             return response;
         }
 
@@ -216,6 +543,19 @@ Response WebServer::handleGET(const Request& req, const Route* route, const Serv
 
     // Check if path is a directory
     if (Response::isDirectory(fullPath)) {
+        // Autoindex has explicit priority when enabled on this route.
+        // This makes autoindex deterministic even if an index file exists.
+        if (route && route->getAutoindex()) {
+            Response listingResponse;
+            std::string rawListing = listingResponse.buildDirectoryListing(fullPath, req.getPath());
+            size_t headerEnd = rawListing.find("\r\n\r\n");
+            if (headerEnd != std::string::npos)
+                response.setBody(rawListing.substr(headerEnd + 4));
+            response.setStatusCode(200);
+            response.setHeader("Content-Type", "text/html");
+            return response;
+        }
+
         // Try index file
         std::string indexPath = fullPath;
         if (indexPath[indexPath.length() - 1] != '/')
@@ -229,18 +569,6 @@ Response WebServer::handleGET(const Request& req, const Route* route, const Serv
             response.setStatusCode(200);
             response.setBody(content);
             response.setHeader("Content-Type", Response::getMimeType(indexPath));
-            return response;
-        }
-        
-        // Check autoindex
-        if (route && route->getAutoindex()) {
-            Response listingResponse;
-            std::string rawListing = listingResponse.buildDirectoryListing(fullPath, req.getPath());
-            size_t headerEnd = rawListing.find("\r\n\r\n");
-            if (headerEnd != std::string::npos)
-                response.setBody(rawListing.substr(headerEnd + 4));
-            response.setStatusCode(200);
-            response.setHeader("Content-Type", "text/html");
             return response;
         }
         
@@ -283,22 +611,7 @@ Response WebServer::handlePOST(const Request& req, const Route* route, const Ser
         std::string cgiOutput = cgi.execute();
 
         if (!cgiOutput.empty()) {
-            size_t headerEnd = cgiOutput.find("\r\n\r\n");
-            size_t bodyStart = std::string::npos;
-            if (headerEnd != std::string::npos)
-                bodyStart = headerEnd + 4;
-            else {
-                headerEnd = cgiOutput.find("\n\n");
-                if (headerEnd != std::string::npos)
-                    bodyStart = headerEnd + 2;
-            }
-
-            if (bodyStart != std::string::npos)
-                response.setBody(cgiOutput.substr(bodyStart));
-            else
-                response.setBody(cgiOutput);
-            response.setStatusCode(200);
-            response.setHeader("Content-Type", "text/html");
+            applyCgiOutputToResponse(response, cgiOutput);
             return response;
         }
 
@@ -489,7 +802,10 @@ static std::string stripResponseBody(const std::string& rawResponse) {
 }
 
 void WebServer::handleClient(int clientSocket) {
-    Client* client = _clients[clientSocket];
+    std::map<int, Client*>::iterator clientIt = _clients.find(clientSocket);
+    if (clientIt == _clients.end())
+        return;
+    Client* client = clientIt->second;
     
     if (client->readRequest()) {
         const Route* route = client->getServer()->matchRoute(client->getRequest().getPath());
@@ -502,6 +818,9 @@ void WebServer::handleClient(int clientSocket) {
             if (isHead)
                 redirectResponse = stripResponseBody(redirectResponse);
             client->setResponse(redirectResponse);
+        }
+        else if (startAsyncCgi(client, route, isHead)) {
+            return;
         }
         else {
             Response response = handleRequest(client);
@@ -529,16 +848,15 @@ void WebServer::handleClient(int clientSocket) {
         }
         
         // Switch to write mode
-        for (size_t i = 0; i < _pollFds.size(); i++) {
-            if (_pollFds[i].fd == clientSocket) {
-                _pollFds[i].events = POLLOUT;
-                break;
-            }
-        }
+        setPollEvents(clientSocket, POLLOUT);
+    } else if (client->isDisconnected()) {
+        removeClient(clientSocket);
     }
 }
 
 void WebServer::removeClient(int socket) {
+    cleanupCgiForClient(socket);
+
     std::map<int, Client*>::iterator it = _clients.find(socket);
     if (it != _clients.end()) {
         delete it->second;
@@ -580,17 +898,25 @@ void WebServer::run() {
         }
         
         for (size_t i = 0; i < _pollFds.size(); i++) {
+            int fd = _pollFds[i].fd;
+
+            if (isCgiOutputFd(fd) && (_pollFds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL))) {
+                handleCgiOutput(fd);
+                continue;
+            }
+
             if (_pollFds[i].revents & POLLIN) {
                 // Check if it's a listening socket
-                if (_serverSockets.find(_pollFds[i].fd) != _serverSockets.end()) {
-                    acceptConnection(_serverSockets[_pollFds[i].fd]);
+                if (_serverSockets.find(fd) != _serverSockets.end()) {
+                    acceptConnection(_serverSockets[fd]);
                 } else {
-                    handleClient(_pollFds[i].fd);
+                    handleClient(fd);
                 }
             }
             else if (_pollFds[i].revents & POLLOUT) {
-                int socket = _pollFds[i].fd;
-                Client* client = _clients[socket];
+                int socket = fd;
+                std::map<int, Client*>::iterator clientIt = _clients.find(socket);
+                Client* client = (clientIt != _clients.end()) ? clientIt->second : NULL;
                 
                 if (client && !client->sendResponse()) {
                     removeClient(socket);

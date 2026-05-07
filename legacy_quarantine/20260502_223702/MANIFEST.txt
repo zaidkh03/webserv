@@ -1,6 +1,0 @@
-Quarantine Timestamp: 20260502_223702
-Root: /home/zsalah/Downloads/webserv-main
-
-Moved paths:
-- obj
-- webserv

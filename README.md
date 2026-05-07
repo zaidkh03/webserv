@@ -1,65 +1,180 @@
-# Webserv (Eval-Only Canonical Layout)
+This project has been created as part of the 42 curriculum by zalkhali, galhajaj, zsaleh
 
-This repository is now organized around one deterministic evaluation workflow.
+# Webserv
+## Description
 
-## What Is Canonical
-- Source: `src/`, `include/`, `Makefile`
-- Evaluation fixtures: `www_eval/`
-- Canonical configs:
-  - `config/eval_suite.conf`
-  - `config/eval_secondary.conf`
-  - `config/eval_port_conflict.conf`
-- Canonical testers:
-  - `./scripts/test_eval_quick.sh` (full suite)
-  - `python3 scripts/test_eval_smoke.py` (fast smoke)
-- Canonical docs:
-  - `docs/TESTING.md`
-  - `docs/MANUAL_TESTING.md`
+Webserv is a custom HTTP/1.1 web server developed in C++ as part of the 42 curriculum.  
+The objective of the project is to understand how real web servers work internally by rebuilding their core behavior from scratch without relying on existing web server frameworks such as Nginx or Apache.
 
-## Build
+The server is capable of handling multiple client connections simultaneously using non-blocking sockets and an event-driven architecture. It processes HTTP requests, generates appropriate HTTP responses, serves static files, executes CGI scripts, and supports configurable virtual servers through a custom configuration file.
+
+The project focuses heavily on low-level programming concepts such as:
+
+- TCP/IP networking
+- Socket programming
+- HTTP protocol implementation
+- Request parsing
+- Event multiplexing (`poll`, `select`, `epoll`, etc.)
+- Process and file management
+- CGI execution
+- Resource and memory management
+
+Main implemented features include:
+
+- HTTP/1.1 support
+- GET, POST, and DELETE methods
+- Static website serving
+- Multiple virtual servers
+- Custom error pages
+- File uploads
+- CGI support
+- Autoindex support
+- Persistent connections
+- Configurable routes and ports
+
+This project provides practical experience with server architecture and demonstrates how modern web servers operate at a low level.
+
+---
+
+## Instructions
+
+### Requirements
+
+Before compiling the project, ensure the following are installed:
+
+- `c++`
+- `make`
+- Linux or Unix-based operating system
+
+Recommended compiler standard:
+
+```bash
+c++ -std=c++98
+```
+
+### Clone the Repository
+
+```bash
+git clone <repository_url>
+cd webserv
+```
+
+### Compile the Project
+
 ```bash
 make
 ```
 
-## Run (Explicit Config Required)
+Available Makefile rules:
+
 ```bash
-./webserv config/eval_suite.conf
+make        # Compile the project
+make clean  # Remove object files
+make fclean # Remove object files and executable
+make re     # Rebuild the project
 ```
 
-`./webserv` without a config argument is intentionally not part of the supported flow in this layout.
+### Run the Server
 
-## Config Matrix
-- `config/eval_suite.conf`
-  - Primary evaluation profile.
-  - Runs two servers: `127.0.0.1:18080` (site A) and `127.0.0.1:18081` (site B).
-  - Covers routes for redirect, autoindex, upload/delete, max-body-size limits, CGI behavior, and error pages.
-- `config/eval_secondary.conf`
-  - Secondary standalone server on `127.0.0.1:18082` used for multi-instance checks.
-- `config/eval_port_conflict.conf`
-  - Intentionally conflicting listen config used to verify fast-fail behavior.
+Run with a custom configuration file:
 
-## Automated Testing
 ```bash
-./scripts/test_eval_quick.sh
-python3 scripts/test_eval_smoke.py
+./webserv config/default.conf
 ```
 
-See [docs/TESTING.md](/home/zsalah/Downloads/webserv-main/docs/TESTING.md) for full details.
+### Example Configuration File
 
-## Manual Testing (Without Testers)
-See [docs/MANUAL_TESTING.md](/home/zsalah/Downloads/webserv-main/docs/MANUAL_TESTING.md).
+```conf
+server {
+    listen 8080;
+    server_name localhost;
 
-## Safe Cleanup Workflow (Two-Step)
-Step 1: Quarantine non-canonical files and generate a manifest.
-```bash
-./scripts/quarantine_legacy.sh
+    root ./www;
+
+    location / {
+        index index.html;
+    }
+
+    error_page 404 ./errors/404.html;
+}
 ```
 
-Step 2: Purge quarantined files only after validation passes.
-```bash
-./scripts/purge_quarantine.sh
+### Testing
+
+Open a browser and visit:
+
+```text
+http://localhost:8080
 ```
 
-## Notes
-- The C++ server interfaces and CLI contract are unchanged.
-- This cleanup intentionally favors evaluation determinism over legacy/demo profile compatibility.
+You can also test the server using `curl`:
+
+#### GET Request
+
+```bash
+curl http://localhost:8080
+```
+
+#### POST Request
+
+```bash
+curl -X POST -d "name=test" http://localhost:8080
+```
+
+#### DELETE Request
+
+```bash
+curl -X DELETE http://localhost:8080/file.txt
+```
+
+---
+
+## Resources
+
+### HTTP & Networking References
+
+- RFC 7230 — Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing
+- RFC 7231 — HTTP/1.1 Semantics and Content
+- Beej’s Guide to Network Programming
+- MDN Web Docs — HTTP Documentation
+- Linux man pages:
+  - `socket`
+  - `bind`
+  - `listen`
+  - `accept`
+  - `poll`
+  - `select`
+  - `epoll`
+  - `fork`
+  - `execve`
+
+### C++ References
+
+- The C++ Programming Language — Bjarne Stroustrup
+- cppreference.com
+- C++98 standard documentation
+
+### Web Server & CGI References
+
+- Nginx documentation
+- Apache HTTP Server documentation
+- CGI documentation
+- POSIX documentation
+
+### AI Usage
+
+AI tools were used as supplementary learning and productivity aids during the development of this project.
+
+AI assistance was mainly used for:
+
+- Understanding HTTP protocol behavior
+- Explaining socket programming concepts
+- Clarifying CGI execution flow
+- Reviewing architecture ideas
+- Debugging compilation and runtime issues
+- Explaining low-level networking concepts
+- Improving code readability and organization
+- Assisting with documentation writing
+- Generating testing examples and edge cases
+
+All implementation decisions, project architecture, debugging, integration, and final validation were performed manually by the project authors.

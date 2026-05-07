@@ -15,8 +15,8 @@ CONFIG_PATH = ROOT_DIR / "config" / "eval_suite.conf"
 LOG_PATH = ROOT_DIR / ".eval_smoke.log"
 
 HOST = "127.0.0.1"
-PORT_A = 18080
-PORT_B = 18081
+PORT_A = 8080
+PORT_B = 8081
 
 PASS = 0
 FAIL = 0

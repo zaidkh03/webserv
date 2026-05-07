@@ -15,6 +15,7 @@ private:
     time_t _lastActivity;
     const Server* _server;
     bool _keepAlive;
+    bool _disconnected;
 
 public:
     Client(int socket, const Server* server);
@@ -25,6 +26,7 @@ public:
     const Server* getServer() const { return _server; }
     time_t getLastActivity() const { return _lastActivity; }
     bool isKeepAlive() const { return _keepAlive; }
+    bool isDisconnected() const { return _disconnected; }
     
     void updateActivity() { _lastActivity = time(NULL); }
     void setResponse(const std::string& response) { 

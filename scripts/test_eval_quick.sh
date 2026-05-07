@@ -4,9 +4,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 HOST="${HOST:-127.0.0.1}"
-PORT_A="${PORT_A:-18080}"
-PORT_B="${PORT_B:-18081}"
-PORT_SECONDARY="${PORT_SECONDARY:-18082}"
+PORT_A="${PORT_A:-8080}"
+PORT_B="${PORT_B:-8081}"
+PORT_SECONDARY="${PORT_SECONDARY:-8082}"
 
 SERVER_BIN="${SERVER_BIN:-$ROOT_DIR/webserv}"
 CONFIG_PATH="${CONFIG_PATH:-$ROOT_DIR/config/eval_suite.conf}"

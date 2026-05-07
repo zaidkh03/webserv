@@ -1,10 +1,16 @@
 #include "../include/Route.hpp"
 
-Route::Route() : _path("/"), _autoindex(false), _uploadEnabled(false), _maxBodySize(0) {
+Route::Route() : _path("/"), _autoindex(false), _uploadEnabled(false), _maxBodySize(0),
+                 _hasMethods(false), _hasRoot(false), _hasIndex(false),
+                 _hasAutoindex(false), _hasRedirect(false), _hasUploadPath(false),
+                 _hasUploadEnabled(false), _hasMaxBodySize(false) {
     _methods.push_back("GET");
 }
 
-Route::Route(const std::string& path) : _path(path), _autoindex(false), _uploadEnabled(false), _maxBodySize(0) {
+Route::Route(const std::string& path) : _path(path), _autoindex(false), _uploadEnabled(false), _maxBodySize(0),
+                                        _hasMethods(false), _hasRoot(false), _hasIndex(false),
+                                        _hasAutoindex(false), _hasRedirect(false), _hasUploadPath(false),
+                                        _hasUploadEnabled(false), _hasMaxBodySize(false) {
     _methods.push_back("GET");
 }
 

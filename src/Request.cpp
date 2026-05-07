@@ -1,5 +1,18 @@
 #include "../include/Request.hpp"
 
+namespace {
+
+std::string toLowerAscii(const std::string& value) {
+    std::string lowered = value;
+    for (size_t i = 0; i < lowered.length(); i++) {
+        if (lowered[i] >= 'A' && lowered[i] <= 'Z')
+            lowered[i] = static_cast<char>(lowered[i] - 'A' + 'a');
+    }
+    return lowered;
+}
+
+} // namespace
+
 Request::Request() : _complete(false), _headersComplete(false), 
                      _contentLength(0), _chunked(false) {}
 
@@ -28,8 +41,8 @@ void Request::parseHeader(const std::string& line) {
         size_t start = value.find_first_not_of(" \t");
         if (start != std::string::npos)
             value = value.substr(start);
-            
-        _headers[key] = value;
+
+        _headers[toLowerAscii(key)] = value;
     }
 }
 
@@ -159,7 +172,7 @@ bool Request::parse(const std::string& data) {
 }
 
 std::string Request::getHeader(const std::string& key) const {
-    std::map<std::string, std::string>::const_iterator it = _headers.find(key);
+    std::map<std::string, std::string>::const_iterator it = _headers.find(toLowerAscii(key));
     if (it != _headers.end())
         return it->second;
     return "";
